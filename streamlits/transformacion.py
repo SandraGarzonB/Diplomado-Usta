@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
 from streamlits.utils import normalizar_texto, corregir_departamentos, limpiar_metricas
+import plotly.express as px
 
 def show_transform_tab():
-    st.title("🔧 Transformación de Datos ")
+    st.title("🔧 Transformación de Datos")
 
     if 'df_raw' not in st.session_state:
         st.warning("⚠️ Primero carga los datos desde la pestaña anterior.")
@@ -23,9 +24,10 @@ def show_transform_tab():
         st.error(f"❌ Columnas faltantes: {columnas_faltantes}")
         return
 
-    # === 🧼 Limpieza inicial
+    # 🧼 Limpieza inicial
     df = df_raw[columnas_relevantes].copy()
-    df = df.dropna(subset=['departamento', 'municipio', 'a_o'])  # esenciales
+    df = df.dropna(subset=['departamento', 'municipio', 'a_o'])
+    df['c_digo_departamento'] = df['c_digo_departamento'].astype(str)
 
     for col in ["departamento", "municipio"]:
         df[col] = df[col].astype(str).apply(normalizar_texto)
@@ -36,40 +38,36 @@ def show_transform_tab():
     df["departamento"] = df["departamento"].str.strip().str.title()
     total_limpio = df.shape[0]
 
-    # Conversión de tipos
-    df['a_o'] = pd.to_numeric(df['a_o'], errors='coerce')
+    # Tipos de datos
+    df['a_o'] = pd.to_numeric(df['a_o'], errors='coerce').astype('Int64')
     df['poblaci_n_5_16'] = pd.to_numeric(df['poblaci_n_5_16'], errors='coerce')
 
-    # === 1️⃣ LIMPIEZA Y VALIDACIÓN
+    # 📌 1. Métricas de validación
     st.markdown("### 🔵 1. Limpieza y Validación de Datos")
     col1, col2 = st.columns(2)
     col1.metric("📄 Registros originales", total_original)
     col2.metric("✅ Registros válidos", total_limpio)
 
-    # === 2️⃣ DIMENSIONES DEL MODELO ESTRELLA
+    # 🌍 2. Dimensiones del Modelo Estrella
     st.markdown("### 🟦 2. Dimensiones del Modelo Estrella")
 
     dim_tiempo = df[['a_o']].drop_duplicates().sort_values('a_o')
-    dim_geografica = df[['c_digo_departamento', 'departamento', 'municipio']].drop_duplicates()
-
     dim_tiempo['id_tiempo'] = dim_tiempo['a_o']
-    dim_geografica['id_geografico'] = (
-        dim_geografica['departamento'] + "_" + dim_geografica['municipio']
-    ).str.replace(" ", "_")
+
+    dim_geo = df[['c_digo_departamento', 'departamento', 'municipio']].drop_duplicates()
+    dim_geo['id_geografico'] = (dim_geo['departamento'] + "_" + dim_geo['municipio']).str.replace(" ", "_").str.lower()
 
     col1, col2 = st.columns(2)
     col1.metric("📆 Dimensión Tiempo", dim_tiempo.shape[0])
-    col2.metric("🗺️ Dimensión Geográfica", dim_geografica.shape[0])
+    col2.metric("🗺️ Dimensión Geográfica", dim_geo.shape[0])
 
     st.markdown("**🗃️ Dimensión Geográfica (vista previa)**")
-    st.dataframe(dim_geografica.head())
+    st.dataframe(dim_geo.head())
 
-    # === 3️⃣ TABLA DE HECHOS
+    # 💾 3. Tabla de Hechos
     st.markdown("### 🟦 3. Tabla de Hechos")
 
-    df['id_geografico'] = (
-        df['departamento'] + "_" + df['municipio']
-    ).str.replace(" ", "_")
+    df['id_geografico'] = (df['departamento'] + "_" + df['municipio']).str.replace(" ", "_").str.lower()
     df['id_tiempo'] = df['a_o']
 
     tabla_hechos = df[[
@@ -82,27 +80,25 @@ def show_transform_tab():
     st.success(f"✅ Tabla de hechos construida con {tabla_hechos.shape[0]:,} registros.")
     st.dataframe(tabla_hechos.head())
 
-    # === 💾 Guardar tabla limpia para otras pestañas
+    # Guardar para otras pestañas
     st.session_state['df_clean'] = tabla_hechos
-    st.session_state['dim_geo'] = dim_geografica
+    st.session_state['tabla_hechos'] = tabla_hechos
+    st.session_state['dim_geo'] = dim_geo
     st.session_state['dim_tiempo'] = dim_tiempo
 
-    # === 📈 4️⃣ Resumen Estadístico por Año
+    # 📊 4. Estadísticas por Año
     st.markdown("### 📈 4. Estadísticas Descriptivas por Año")
-
     resumen = (
         tabla_hechos
         .groupby('a_o')[['poblaci_n_5_16', 'tasa_matriculaci_n_5_16', 'cobertura_neta', 'cobertura_bruta']]
         .agg(['mean', 'std', 'min', 'max', 'median'])
         .round(2)
+        .sort_index()
     )
-
     st.dataframe(resumen)
 
-        st.markdown("### 📊 5. Evolución de la Cobertura Neta Promedio")
-
-    import plotly.express as px
-
+    # 📉 5. Evolución de la Cobertura Neta
+    st.markdown("### 📊 5. Evolución de la Cobertura Neta Promedio")
     cobertura_por_año = (
         tabla_hechos
         .groupby('a_o')['cobertura_neta']
@@ -117,7 +113,7 @@ def show_transform_tab():
         markers=True,
         title="Cobertura Neta Promedio por Año",
         labels={'a_o': 'Año', 'cobertura_neta': 'Cobertura Neta (%)'},
-        color_discrete_sequence=["#002855"]
+        color_discrete_sequence=['#002855']
     )
 
     fig.update_layout(
@@ -125,8 +121,6 @@ def show_transform_tab():
         yaxis=dict(range=[0, 110]),
         template="simple_white"
     )
-
     st.plotly_chart(fig, use_container_width=True)
-
 
 

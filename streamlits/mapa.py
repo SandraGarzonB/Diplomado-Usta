@@ -7,17 +7,17 @@ from streamlit_folium import st_folium
 def show_map_tab():
     st.header("🗺️ Mapa Interactivo por Departamento")
 
-    # Verificación previa
-    if 'df_fact' not in st.session_state or 'dim_geo' not in st.session_state or 'dim_tiempo' not in st.session_state:
-        st.warning("⚠️ Asegúrate de haber cargado los datos y construido la tabla de hechos.")
+    # Verificación de datos transformados
+    if not all(key in st.session_state for key in ['df_clean', 'dim_geo', 'dim_tiempo']):
+        st.warning("⚠️ Asegúrate de haber transformado los datos correctamente en la pestaña de Transformación.")
         return
 
-    df_fact = st.session_state['df_fact']
+    df_fact = st.session_state['df_clean']
     dim_geo = st.session_state['dim_geo']
     dim_tiempo = st.session_state['dim_tiempo']
 
     # Unir con dimensiones
-    df = df_fact.merge(dim_geo, on='id_geo').merge(dim_tiempo, on='id_tiempo')
+    df = df_fact.merge(dim_geo, on='id_geografico').merge(dim_tiempo, on='id_tiempo')
 
     # Selección de métrica
     metricas = {
@@ -25,21 +25,20 @@ def show_map_tab():
         'Cobertura Bruta (%)': 'cobertura_bruta',
         'Tasa de Matriculación 5-16 (%)': 'tasa_matriculaci_n_5_16'
     }
-    metrica_label = st.selectbox("Selecciona la métrica", list(metricas.keys()))
+    metrica_label = st.selectbox("📊 Selecciona la métrica", list(metricas.keys()))
     metrica_col = metricas[metrica_label]
 
     # Selección de año
-    años = sorted(df['a_o'].unique())
-    año_sel = st.selectbox("Selecciona el año", años, index=len(años)-1)
+    años = sorted(df['id_tiempo'].unique())
+
+    año_sel = st.selectbox("📅 Selecciona el año", años, index=len(años)-1)
 
     # Filtrar y agrupar datos
-    df_filtrado = df[df['a_o'] == año_sel]
+    df_filtrado = df[df['id_tiempo'] == año_sel]
     resumen = df_filtrado.groupby('c_digo_departamento')[metrica_col].mean().reset_index()
     resumen['c_digo_departamento'] = resumen['c_digo_departamento'].astype(str).str.zfill(2)
 
-    # ===============================
-    # Leer GeoJSON de departamentos
-    # ===============================
+    # Leer archivo GeoJSON
     try:
         with open("streamlits/Colombia.geo.json", encoding="utf-8") as f:
             geojson_data = json.load(f)
@@ -47,9 +46,7 @@ def show_map_tab():
         st.error(f"❌ No se pudo leer el archivo GeoJSON: {e}")
         return
 
-    # ===============================
-    # Crear el mapa con Folium
-    # ===============================
+    # Crear el mapa
     try:
         m = folium.Map(location=[4.6, -74.1], zoom_start=5, tiles="CartoDB positron")
 
@@ -74,6 +71,7 @@ def show_map_tab():
 
     except Exception as e:
         st.exception(f"🚨 Error al generar el mapa: {e}")
+
 
 
 

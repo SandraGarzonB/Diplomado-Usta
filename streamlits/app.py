@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 
-st.title("📊 Dashboard  - Colombia")
+st.title("📊 Dashboard  - MEN")
 st.markdown("Análisis del comportamiento de la cobertura neta y tasa de matriculados a lo largo del tiempo, integrando fuentes de datos del MEN.")
 
 # ================================
