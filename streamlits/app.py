@@ -3,10 +3,11 @@
 import streamlit as st
 
 
-from streamlits.cargar_datos import show_data_tab
-from streamlits.transformacion import show_transform_tab
-from streamlits.visualizaciones import show_visualization_tab
-from streamlits.mapa import show_map_tab
+from cargar_datos import show_data_tab
+from transformacion import show_transform_tab
+from visualizaciones import show_visualization_tab
+from mapa import show_map_tab
+
 
 # ================================
 # Configuración de la app
