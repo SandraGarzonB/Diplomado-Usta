@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from streamlits.utils import normalizar_texto, corregir_departamentos, limpiar_metricas
+from utils import normalizar_texto, corregir_departamentos, limpiar_metricas
 import plotly.express as px
 
 def show_transform_tab():
